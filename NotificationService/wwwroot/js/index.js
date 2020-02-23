@@ -32,7 +32,6 @@ connectButton.addEventListener("click", function (event) {
 
     connection = new signalR.HubConnectionBuilder()
         .withUrl("/notificationHub?username=" + username)
-        .WithAutomaticReconnect()
         .build();
 
     connection.on("ReceiveMessage", function (user, message) {
@@ -66,7 +65,7 @@ sendButton.addEventListener("click", function (event) {
     var message = messageInput.value;
 
     connection.invoke("BroadcastMessage", user, message).then(function () {
-        messageInput.value("");
+        messageInput.value = "";
     }).catch(function (err) {
             return console.error(err.toString());
         });

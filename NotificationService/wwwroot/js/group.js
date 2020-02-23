@@ -28,13 +28,17 @@ disconnectButton.addEventListener("click", function (event) {
 
 connectButton.addEventListener("click", function (event) {
 
-    connection = new signalR.HubConnectionBuilder().withUrl("/notificationHub")
-        .WithAutomaticReconnect()
+    
+    var group = document.getElementById("groupInput").value;
+
+    connection = new signalR.HubConnectionBuilder()
+        .withUrl("/notificationHub?group=" + group)
+        .configureLogging(signalR.LogLevel.Information)
         .build();
 
-    connection.on("ReceiveMessage", function (user, message) {
+    connection.on("ReceiveGroupMessage", function (group, message) {
         var msg = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        var encodedMsg = user + " says " + msg;
+        var encodedMsg = group + " says " + msg;
         var li = document.createElement("li");
         li.textContent = encodedMsg;
         document.getElementById("messagesList").appendChild(li);
@@ -57,12 +61,12 @@ connectButton.addEventListener("click", function (event) {
 
 
 sendButton.addEventListener("click", function (event) {
-    var user = document.getElementById("userInput").value;
+    var group = document.getElementById("groupInput").value;
 
     var messageInput = document.getElementById("messageInput");
     var message = messageInput.value;
 
-    connection.invoke("SendMessage", user, message).then(function () {
+    connection.invoke("SendGroupMessage", group, message).then(function () {
         messageInput.value = "";
     }).catch(function (err) {
             return console.error(err.toString());

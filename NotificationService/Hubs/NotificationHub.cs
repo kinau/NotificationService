@@ -17,13 +17,13 @@ namespace NotificationService.Hubs
 
         public override Task OnConnectedAsync()
         {
-            GetConnectionId();
+            GetConnectionId().Wait();
             return base.OnConnectedAsync();
         }
 
         public override Task OnDisconnectedAsync(Exception exception)
         {
-            RemoveConnection(Context.UserIdentifier);
+            RemoveConnection().Wait();
             return base.OnDisconnectedAsync(exception);
         }
 
@@ -38,10 +38,16 @@ namespace NotificationService.Hubs
             var connections = _connectionManager.GetConnections(user);
             await Clients.Clients(connections.ToList()).SendAsync("ReceiveMessage", Context.User.Identity.Name, message);
 
-           
+
         }
 
-        public string GetConnectionId()
+        public async Task SendGroupMessage(string group, string message)
+        {
+            
+            await Clients.Group(group).SendAsync("ReceiveGroupMessage", group, message);
+        }
+
+        public async Task GetConnectionId()
         {
             var httpContext = this.Context.GetHttpContext();
             var username = httpContext.Request.Query["username"];
@@ -53,17 +59,55 @@ namespace NotificationService.Hubs
 
             Debug.WriteLine($"GetConnectionId() username={username}");
 
-            _connectionManager.AddConnection(username, Context.ConnectionId);
+            if (!string.IsNullOrEmpty(username))
+            {
+                _connectionManager.AddConnection(username, Context.ConnectionId);
+            }
 
-            return Context.ConnectionId;
+
+            var group = httpContext.Request.Query["group"];
+
+            if (!string.IsNullOrEmpty(group))
+            {
+                await AddToGroup(group);
+            }
         }
 
-        public void RemoveConnection(string userId)
+        public async Task RemoveConnection()
         {
-            Debug.WriteLine($"RemoveConnection() userId={userId}");
+            var httpContext = this.Context.GetHttpContext();
+            var group = httpContext.Request.Query["group"];
 
+            if (!string.IsNullOrEmpty(group))
+            {
+                await RemoveFromGroup(group);
+            }
 
-            _connectionManager.RemoveConnection(Context.ConnectionId);
+            var username = httpContext.Request.Query["username"];
+
+            if (string.IsNullOrEmpty(username))
+            {
+                username = Context.User.Identity.Name;
+            }
+            
+            if (!string.IsNullOrEmpty(username))
+            {
+                _connectionManager.RemoveConnection(Context.ConnectionId);
+            }
+        }
+
+        public async Task AddToGroup(string groupName)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            await Clients.Group(groupName).SendAsync("ReceiveGroupMessage", groupName, $"{Context.ConnectionId} has joined the group {groupName}.");
+        }
+
+        public async Task RemoveFromGroup(string groupName)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            await Clients.Group(groupName).SendAsync("ReceiveGroupMessage", groupName, $"{Context.ConnectionId} has left the group {groupName}.");
         }
     }
 }
